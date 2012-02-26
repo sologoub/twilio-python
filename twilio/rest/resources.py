@@ -365,6 +365,35 @@ class ListResource(Resource):
         instance.load(data)
         instance.load_subresources()
         return instance
+    
+    def numpages(self, params=None, page=None, page_size=None):
+        """
+        Query the list resource for a list of InstanceResources.
+
+        Raises a TwilioRestException if requesting a page of results that does
+        not exist.
+
+        :param dict params: List of URL parameters to be included in request
+        :param int page: The page of results to retrieve (most recent at 0)
+        :param int page_size: The number of results to be returned.
+
+        :returns: -- number of pages in the result
+        """
+        
+        params = params or {}
+
+        if page is not None:
+            params["Page"] = page
+
+        if page_size is not None:
+            params["PageSize"] = page_size
+
+        resp, page = self.request("GET", self.uri, params=params)
+
+        if self.key not in page:
+            raise TwilioException("Key %s not present in response" % self.key)
+        
+        return page["num_pages"]
 
 
 class AvailablePhoneNumber(InstanceResource):
@@ -468,8 +497,8 @@ class Recordings(ListResource):
     @normalize_dates
     def list(self, call_sid=None, before=None, after=None, **kwargs):
         """
-        Returns a page of :class:`Recording` resources as a list.
-        For paging information see :class:`ListResource`.
+        Returns a page of :class:`Recording` resources as a list. For paging
+        informtion see method 'list_numpages'.
 
         :param date after: Only list recordings logged after this datetime
         :param date before: Only list recordings logger before this datetime
@@ -481,6 +510,30 @@ class Recordings(ListResource):
             "DateCreated>": after,
             })
         return self.get_instances(params=params)
+    
+    @normalize_dates
+    def list_numpages(self, call_sid=None, before=None, after=None, **kwargs):
+        """
+        Returns number of pages associated with a filtered request to list Recording
+        resources for paging.
+
+        :param date after: Only list recordings logged after this datetime
+        :param date before: Only list recordings logger before this datetime
+        :param call_sid: Only list recordings from this :class:`Call`
+        """
+        params = transform_params({
+            "CallSid": call_sid,
+            "DateCreated<": before,
+            "DateCreated>": after,
+            })
+        
+        resp, page = self.request("GET", self.uri, params=params)
+
+        if self.key not in page:
+            raise TwilioException("Key %s not present in response" % self.key)
+        
+        return page["num_pages"]
+
 
     def delete(self, sid):
         """
@@ -506,8 +559,8 @@ class Notifications(ListResource):
     @normalize_dates
     def list(self, before=None, after=None, log_level=None, **kwargs):
         """
-        Returns a page of :class:`Notification` resources as a list.
-        For paging informtion see :class:`ListResource`.
+        Returns a page of :class:`Notification` resources as a list. For paging
+        informtion see method 'list_numpages'.
 
         **NOTE**: Due to the potentially voluminous amount of data in a
         notification, the full HTTP request and response data is only returned
@@ -523,6 +576,30 @@ class Notifications(ListResource):
                 "LogLevel": log_level,
                 })
         return self.get_instances(params=params, **kwargs)
+    
+    @normalize_dates
+    def list_numpages(self, call_sid=None, before=None, after=None, **kwargs):
+        """
+        Returns number of pages associated with a filtered request to list Notification
+        resources for paging.
+
+        :param date after: Only list notifications logged after this datetime
+        :param date before: Only list notifications logger before this datetime
+        :param log_level: If 1, only shows errors. If 0, only show warnings
+        """
+        params = transform_params({
+                "MessageDate<": before,
+                "MessageDate>": after,
+                "LogLevel": log_level,
+                })
+        
+        resp, page = self.request("GET", self.uri, params=params)
+
+        if self.key not in page:
+            raise TwilioException("Key %s not present in response" % self.key)
+        
+        return page["num_pages"]
+
 
     def delete(self, sid):
         """
@@ -629,7 +706,7 @@ class Calls(ListResource):
              started_after=None, started=None, **kwargs):
         """
         Returns a page of :class:`Call` resources as a list. For paging
-        informtion see :class:`ListResource`
+        informtion see method 'list_numpages'.
 
         :param date after: Only list calls started after this datetime
         :param date before: Only list calls started before this datetime
@@ -646,6 +723,37 @@ class Calls(ListResource):
             "EndTime": parse_date(ended),
             })
         return self.get_instances(params=params, **kwargs)
+
+    @normalize_dates
+    def list_numpages(self, to=None, from_=None, status=None, ended_after=None,
+             ended_before=None, ended=None, started_before=None,
+             started_after=None, started=None, **kwargs):
+        """
+        Returns number of pages associated with a filtered request to list Call
+        resources for paging.
+
+        :param date after: Only list calls started after this datetime
+        :param date before: Only list calls started before this datetime
+        """
+        params = transform_params({
+            "To": to,
+            "From": from_,
+            "Status": status,
+            "StartTime<": started_before,
+            "StartTime>": started_after,
+            "StartTime": parse_date(started),
+            "EndTime<": ended_before,
+            "EndTime>": ended_after,
+            "EndTime": parse_date(ended),
+            })
+        
+        resp, page = self.request("GET", self.uri, params=params)
+
+        if self.key not in page:
+            raise TwilioException("Key %s not present in response" % self.key)
+        
+        return page["num_pages"]
+
 
     def create(self, to, from_, url, method=None, fallback_url=None,
                fallback_method=None, status_callback=None, status_method=None,
@@ -759,6 +867,9 @@ class CallerIds(ListResource):
 
     def list(self, phone_number=None, friendly_name=None, **kwargs):
         """
+        Returns a page of :class:`CallerId` resources as a list. For paging
+        informtion see method 'list_numpages'.
+        
         :param phone_number: Show caller ids with this phone number.
         :param friendly_name: Show caller ids with this friendly name.
         """
@@ -767,6 +878,30 @@ class CallerIds(ListResource):
             "FrienldyName": friendly_name,
             })
         return self.get_instances(params=params, **kwargs)
+    
+    @normalize_dates
+    def list_numpages(self, to=None, from_=None, status=None, ended_after=None,
+             ended_before=None, ended=None, started_before=None,
+             started_after=None, started=None, **kwargs):
+        """
+        Returns number of pages associated with a filtered request to list CallerId
+        resources for paging.
+
+        :param phone_number: Show caller ids with this phone number.
+        :param friendly_name: Show caller ids with this friendly name.
+        """
+        params = transform_params({
+            "PhoneNumber": phone_number,
+            "FrienldyName": friendly_name,
+            })
+        
+        resp, page = self.request("GET", self.uri, params=params)
+
+        if self.key not in page:
+            raise TwilioException("Key %s not present in response" % self.key)
+        
+        return page["num_pages"]
+
 
     def update(self, sid, friendly_name=None):
         """
@@ -878,6 +1013,9 @@ class PhoneNumbers(ListResource):
 
     def list(self, phone_number=None, friendly_name=None, **kwargs):
         """
+        Returns a page of :class:`PhoneNumber` resources as a list. For paging
+        informtion see method 'list_numpages'.
+        
         :param phone_number: Show phone numbers that match this pattern.
         :param friendly_name: Show phone numbers with this friendly name
 
@@ -888,6 +1026,28 @@ class PhoneNumbers(ListResource):
                "FriendlyName": friendly_name,
                })
         return self.get_instances(params=params, **kwargs)
+    
+    def list_numpages(self, phone_number=None, friendly_name=None, **kwargs):
+        """
+        Returns number of pages associated with a filtered request to list PhoneNumber
+        resources for paging.
+        
+        :param phone_number: Show phone numbers that match this pattern.
+        :param friendly_name: Show phone numbers with this friendly name
+
+        You can specify partial numbers and use '*' as a wildcard.
+        """
+        params = transform_params({
+               "PhoneNumber": phone_number,
+               "FriendlyName": friendly_name,
+               })
+        
+        resp, page = self.request("GET", self.uri, params=params)
+
+        if self.key not in page:
+            raise TwilioException("Key %s not present in response" % self.key)
+        
+        return page["num_pages"]
 
     def purchase(self, phone_number=None, area_code=None, voice_url=None,
                  voice_method=None, voice_fallback_url=None,
@@ -1059,13 +1219,13 @@ class SmsMessages(ListResource):
             "ApplicationSid": application_sid,
             })
         return self.create_instance(params)
-
+    
     @normalize_dates
     def list(self, to=None, from_=None, before=None, after=None,
              date_sent=None, **kwargs):
         """
-        Returns a page of :class:`SMSMessage` resources as a list. For
-        paging informtion see :class:`ListResource`.
+        Returns a page of :class:`SmsMessage` resources as a list. For paging
+        informtion see method 'list_numpages'.
 
         :param to: Only show SMS messages to this phone number.
         :param from_: Only show SMS messages from this phone number.
@@ -1084,6 +1244,37 @@ class SmsMessages(ListResource):
             "DateSent": parse_date(date_sent),
             })
         return self.get_instances(params=params, **kwargs)
+    
+    @normalize_dates
+    def list_numpages(self, to=None, from_=None, before=None, after=None,
+             date_sent=None, **kwargs):
+        """
+        Returns number of pages associated with a filtered request to list SMSMessage
+        resources for paging.
+
+        :param to: Only show SMS messages to this phone number.
+        :param from_: Only show SMS messages from this phone number.
+        :param date after: Only list SMS messages sent after this date.
+        :param date before: Only list SMS message sent before this date.
+        :param date date_sent: Only list SMS message sent on this date.
+        :param `from_`: Only show SMS messages from this phone number.
+        :param date after: Only list recordings logged after this datetime
+        :param date before: Only list recordings logged before this datetime
+        """
+        params = transform_params({
+            "To": to,
+            "From": from_,
+            "DateSent<": before,
+            "DateSent>": after,
+            "DateSent": parse_date(date_sent),
+            })
+        
+        resp, page = self.request("GET", self.uri, params=params)
+
+        if self.key not in page:
+            raise TwilioException("Key %s not present in response" % self.key)
+        
+        return page["num_pages"]
 
 
 class ShortCode(InstanceResource):
@@ -1100,8 +1291,8 @@ class ShortCodes(ListResource):
 
     def list(self, short_code=None, friendly_name=None, **kwargs):
         """
-        Returns a page of :class:`ShortCode` resources as a list. For
-        paging information see :class:`ListResource`.
+        Returns a page of :class:`ShortCode` resources as a list. For paging
+        informtion see method 'list_numpages'.
 
         :param short_code: Only show the ShortCode resources that match this
                            pattern. You can specify partial numbers and use '*'
@@ -1114,6 +1305,29 @@ class ShortCodes(ListResource):
             "FriendlyName": friendly_name,
             })
         return self.get_instances(params=params, **kwargs)
+    
+    def list_numpages(self, short_code=None, friendly_name=None, **kwargs):
+        """
+        Returns number of pages associated with a filtered request to list ShortCode
+        resources for paging.
+
+        :param short_code: Only show the ShortCode resources that match this
+                           pattern. You can specify partial numbers and use '*'
+                           as a wildcard for any digit.
+        :param friendly_name: Only show the ShortCode resources with friendly
+                              names that exactly match this name.
+        """
+        params = transform_params({
+            "ShortCode": short_code,
+            "FriendlyName": friendly_name,
+            })
+        
+        resp, page = self.request("GET", self.uri, params=params)
+
+        if self.key not in page:
+            raise TwilioException("Key %s not present in response" % self.key)
+        
+        return page["num_pages"]
 
     def update(self, sid, friendly_name=None, api_version=None, url=None,
                method=None, fallback_url=None, fallback_method=None):
@@ -1236,7 +1450,8 @@ class Conferences(ListResource):
              updated_after=None, created_after=None, created_before=None,
              updated=None, created=None, **kwargs):
         """
-        Return a list of :class:`Conference` resources
+        Returns a page of :class:`Conference` resources as a list. For paging
+        informtion see method 'list_numpages'.
 
         :param status: Show conferences with this status
         :param frienldy_name: Show conferences with this exact frienldy_name
@@ -1256,6 +1471,39 @@ class Conferences(ListResource):
             "DateCreated": parse_date(created),
             })
         return self.get_instances(params=params, **kwargs)
+    
+    @normalize_dates
+    def list_numpages(self, status=None, friendly_name=None, updated_before=None,
+             updated_after=None, created_after=None, created_before=None,
+             updated=None, created=None, **kwargs):
+        """
+        Returns number of pages associated with a filtered request to list Conference
+        resources for paging.
+
+        :param status: Show conferences with this status
+        :param frienldy_name: Show conferences with this exact frienldy_name
+        :param date updated_after: List conferences updated after this date
+        :param date updated_before: List conferences updated before this date
+        :param date created_after: List conferences created after this date
+        :param date created_before: List conferences created before this date
+        """
+        params = transform_params({
+            "Status": status,
+            "FriendlyName": friendly_name,
+            "DateUpdated<": updated_before,
+            "DateUpdated>": updated_after,
+            "DateUpdated": parse_date(updated),
+            "DateCreated<": created_before,
+            "DateCreated>": created_after,
+            "DateCreated": parse_date(created),
+            })
+        
+        resp, page = self.request("GET", self.uri, params=params)
+
+        if self.key not in page:
+            raise TwilioException("Key %s not present in response" % self.key)
+        
+        return page["num_pages"]
 
 
 class Application(InstanceResource):
@@ -1454,7 +1702,7 @@ class Accounts(ListResource):
     def list(self, friendly_name=None, status=None, **kwargs):
         """
         Returns a page of :class:`Account` resources as a list. For paging
-        informtion see :class:`ListResource`
+        informtion see method 'list_numpages'.
 
         :param date friendly_name: Only list accounts with this friendly name
         :param date status: Only list accounts with this status
@@ -1464,6 +1712,26 @@ class Accounts(ListResource):
                 "Status": status,
                 })
         return self.get_instances(params=params, **kwargs)
+    
+    def list_numpages(self, friendly_name=None, status=None, **kwargs):
+        """
+        Returns number of pages associated with a filtered request to list Account
+        resources for paging.
+
+        :param date friendly_name: Only list accounts with this friendly name
+        :param date status: Only list accounts with this status
+        """
+        params = transform_params({
+                "FriendlyName": friendly_name,
+                "Status": status,
+                })
+        
+        resp, page = self.request("GET", self.uri, params=params)
+
+        if self.key not in page:
+            raise TwilioException("Key %s not present in response" % self.key)
+        
+        return page["num_pages"]
 
     def update(self, sid, friendly_name=None, status=None):
         """
