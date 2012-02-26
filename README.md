@@ -1,3 +1,5 @@
+NOTE: Forked from https://github.com/twilio/twilio-python. Added "list_numpages" method classes in REST helper to make paging easier.
+
 A module for using the Twilio REST API and generating valid
 [TwiML](http://www.twilio.com/docs/api/twiml/ "TwiML -
 Twilio Markup Language"). [Click here to read the full
